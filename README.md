@@ -31,4 +31,4 @@ module.exports = (grunt) ->
         livereload: true
 ```
 
-Then run `grunt watch` and your change will reload [livereload](http://livereload.com/#getting-started) enabled tabs.
+Then run `grunt watch` and your changes will reload [livereload](http://livereload.com/#getting-started) enabled tabs.
