@@ -24,7 +24,9 @@ try:
 except ImportError:
     from BaseHTTPServer import HTTPServer
     from urllib import urlopen
+
 from functools import wraps
+import os.path
 
 
 def patch(lr_host='localhost', lr_port=35729, files=None):
@@ -54,3 +56,57 @@ def patch(lr_host='localhost', lr_port=35729, files=None):
 
     # Patch the method
     HTTPServer.serve_forever = new_serve_forever
+
+
+def patch_werkzeug_reloader(filter_=None):
+    """
+    Patch the WatchdogReloaderLoop of werkzeug to add an exclude filter
+    Preventing reload on emacs lock files for example.
+
+    The filter_ attribute takes the file absolute path and the file name
+    as parameters. It must be a function that returns true if the file
+    must NOT be taken in account.
+    Defaults to excluding files starting with '.#'
+    """
+    try:
+        import watchdog
+    except ImportError:
+        print('You must have watchdog installed to use this patch')
+        return
+
+    from werkzeug._reloader import reloader_loops, WatchdogReloaderLoop
+    default_filter = lambda abspath, fn: fn.startswith('.#')
+
+
+    class FilteredWatchdogReloaderLoop(WatchdogReloaderLoop):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            this = self
+
+            class _BetterHandler(self.event_handler.__class__):
+
+                def on_created(self, event):
+                    if not this.is_excluded(event.src_path):
+                        super(_BetterHandler, self).on_created(event)
+
+                def on_modified(self, event):
+                    if not this.is_excluded(event.src_path):
+                        super(_BetterHandler, self).on_modified(event)
+
+                def on_moved(self, event):
+                    if (not this.is_excluded(event.src_path) and
+                            not this.is_excluded(event.dest_path)):
+                        super(_BetterHandler, self).on_moved(event)
+
+                def on_deleted(self, event):
+                    if not this.is_excluded(event.src_path):
+                        super(_BetterHandler, self).on_deleted(event)
+
+            self.event_handler = _BetterHandler()
+
+        def is_excluded(self, fn):
+            return (filter_ or default_filter)(fn, os.path.basename(fn))
+
+    if reloader_loops['auto'] == reloader_loops['watchdog']:
+        reloader_loops['auto'] = FilteredWatchdogReloaderLoop
+    reloader_loops['watchdog'] = FilteredWatchdogReloaderLoop

@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='http-server-livereload',
-    version='1.0.0',
+    version='1.1.0',
     description='A monkey patch of http.server to call livereload when '
     'server_forever is called. This is compatible with flask reload '
     'and tiny-lr (grunt watch).',
